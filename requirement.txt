@@ -1,0 +1,10 @@
+streamlit
+pandas
+numpy
+xgboost
+shap
+seaborn
+scikit-learn
+matplotlib
+bioinfokit
+rpy2
