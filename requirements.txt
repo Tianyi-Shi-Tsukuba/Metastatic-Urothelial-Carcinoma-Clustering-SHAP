@@ -7,3 +7,4 @@ seaborn
 scikit-learn
 matplotlib
 bioinfokit
+rpy2
