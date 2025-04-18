@@ -13,9 +13,9 @@ from sklearn.tree import plot_tree
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from bioinfokit.analys import norm
-from rpy2 import robjects
-from rpy2.robjects import r,pandas2ri
-from rpy2.robjects.packages import importr
+#from rpy2 import robjects
+#from rpy2.robjects import r,pandas2ri
+#from rpy2.robjects.packages import importr
 
    
 ###################  函数部分 ################### 
