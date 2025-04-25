@@ -7,17 +7,12 @@ import shap
 import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.tree import plot_tree
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
-from bioinfokit.analys import norm
-from rpy2 import robjects
-from rpy2.robjects import r,pandas2ri
-from rpy2.robjects.packages import importr
 
    
 ###################  Function ################### 
