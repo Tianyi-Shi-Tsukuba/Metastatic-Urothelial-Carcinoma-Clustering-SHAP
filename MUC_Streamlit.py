@@ -115,12 +115,12 @@ def single_split_evaluation(X, y, model, test_size=0.2):
     st.write("Train ACC:", train_score)
     st.write("Test ACC:", test_score)
 
-def perform_shap_analysis(model, X, y):
+def perform_shap_analysis(model, X, y, z):
     st.subheader("SHAP values")
     st.markdown("<h6 style='text-align: left; color: black;'>*You can download the SHAP values for your own clustering and downstream analysis. </h8>", unsafe_allow_html=True)
     explainer = shap.Explainer(model)
     shap_values = explainer(X)
-    display_shap_values(X,shap_values, z.values)
+    display_shap_values(X, shap_values, z.values)
     shap_values_nr = shap_values.values[y == 0]
     shap_values_r = shap_values.values[y == 1]
     return shap_values.values, shap_values_nr, shap_values_r
@@ -340,7 +340,7 @@ def xgboost_shap_analysis(X, y):
         single_split_evaluation(X, y, model)
         model = train_xgboost_model(X, y, subsample, alpha, eta)
      
-    shap_values, shap_values_nr, shap_values_r = perform_shap_analysis(model, X, y)
+    shap_values, shap_values_nr, shap_values_r = perform_shap_analysis(model, X, y, z)
 
     st.write("---")  
     st.title("Step 4: PCA + Clustering + Decision Tree + Heatmap")
@@ -421,7 +421,8 @@ st.table(data_format_table_cnt)
 st.markdown("<h6 style='text-align: left; color: black;'>The input data should be a .csv file containing gene expression values, where rows represent gene names and columns represent sample names. To ensure efficient computation and meaningful analysis, it is recommended to input a filtered set of genes, such as those identified by differential expression analysis (DEGs). </h8>", unsafe_allow_html=True)
 st.markdown("<h3 style='text-align: center; color: black;'>Meta data:</h3>", unsafe_allow_html=True)
 st.table(data_format_table_meta)
-st.markdown("<h6 style='text-align: left; color: black;'>The input data should be .csv of Meta data. </h8>", unsafe_allow_html=True)
+st.markdown("<h6 style='text-align: left; color: black;'>The input data should be .csv of Meta data. Notice: Please avoid uploading files that contain personal information (e.g., names, dates of birth, addresses, or any other personally identifiable information). </h8>", unsafe_allow_html=True)
+
 st.write("---")  
 st.title("Step1: Data upload")
 uploaded_file = st.file_uploader("Please upload the gene expression data", type="csv")
