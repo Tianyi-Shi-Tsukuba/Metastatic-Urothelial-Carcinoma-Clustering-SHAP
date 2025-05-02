@@ -389,7 +389,7 @@ def xgboost_shap_analysis(X, y):
 
 ###################  Page  ################### 
 st.set_page_config(
-    page_title="Sakura",
+    page_title="Sakura · LSC project",
     page_icon="🌸",
     layout="centered",
     initial_sidebar_state="expanded",
