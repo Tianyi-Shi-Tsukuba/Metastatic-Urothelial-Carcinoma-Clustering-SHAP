@@ -104,16 +104,25 @@ def train_xgboost_model(X, y, subsample, alpha, eta):
     return model
 
 def single_split_evaluation(X, y, model, test_size=0.2):
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=42, stratify=y
-    )
+    seeds = [0, 1, 2, 3, 4]
+    acc_train_list = []
+    acc_test_list = []
 
-    model.fit(X_train, y_train)
-    train_score = model.score(X_train, y_train)
-    test_score = model.score(X_test, y_test)
+    for seed in seeds:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=test_size, random_state=seed, stratify=y
+        )
 
-    st.write("Train ACC:", train_score)
-    st.write("Test ACC:", test_score)
+        model.fit(X_train, y_train)
+        acc_train = model.score(X_train, y_train)
+        acc_test = model.score(X_test, y_test)
+
+        acc_train_list.append(acc_train)
+        acc_test_list.append(acc_test)
+
+    st.write(f"Train ACC (avg of 5 seeds): {np.mean(acc_train_list):.4f}")
+    st.write(f"Test ACC (avg of 5 seeds): {np.mean(acc_test_list):.4f}")
+
 
 def perform_shap_analysis(model, X, y, z):
     st.subheader("SHAP values")
@@ -166,29 +175,47 @@ def perform_clustering(selected_pca_components, k_value, cluster_number, origina
 
     return cluster_colors, sorted_result_df
 
-def create_scatter_plot(pca_components, clusters, selected_components):
+def create_scatter_plot(pca_components, clusters, selected_components, sample_ids):
     fig, ax = plt.subplots(figsize=(16, 9), dpi=300)
     x_index, y_index = selected_components
-    for i in range(len(pca_components)):
-        ax.scatter(pca_components[:, x_index][i], pca_components[:, y_index][i], c=clusters[i])
-        ax.annotate(str(i), xy=(pca_components[:, x_index][i], pca_components[:, y_index][i]),
-                    xytext=(pca_components[:, x_index][i], pca_components[:, y_index][i]), fontsize=10)
+
+    unique_clusters = np.unique(clusters)
+
+    for cluster in unique_clusters:
+        mask = clusters == cluster
+        ax.scatter(
+            pca_components[mask, x_index],
+            pca_components[mask, y_index],
+            label=f'Cluster {cluster}',
+            s=50
+        )
+        # 添加每个点的前5位 ID
+        for i in np.where(mask)[0]:
+            short_id = str(sample_ids[i])[:5]
+            ax.annotate(short_id,
+                        xy=(pca_components[i, x_index], pca_components[i, y_index]),
+                        xytext=(pca_components[i, x_index], pca_components[i, y_index]),
+                        fontsize=10)
 
     title = f'PC{selected_components[0]+1} vs PC{selected_components[1]+1}'
     ax.set_title(title, fontsize=14)
+    ax.set_xlabel(f'PC{selected_components[0]+1}')
+    ax.set_ylabel(f'PC{selected_components[1]+1}')
+    ax.legend(loc='upper right', title='Cluster')
 
     st.pyplot(fig)
-    
 
-def plot_clusters(pca_components, clusters, selected_components_to_show):
+
+
+def plot_clusters(pca_components, clusters, selected_components_to_show, sample_ids):
     st.subheader('Visualization of clusters')
+    # 传入 sample_ids
     if selected_components_to_show == ('PC1', 'PC2'):
-        create_scatter_plot(pca_components, clusters, (0, 1))
+        create_scatter_plot(pca_components, clusters, (0, 1), sample_ids)
     elif selected_components_to_show == ('PC1', 'PC3'):
-        create_scatter_plot(pca_components, clusters, (0, 2))
+        create_scatter_plot(pca_components, clusters, (0, 2), sample_ids)
     else:  # ('PC2', 'PC3')
-        create_scatter_plot(pca_components, clusters, (1, 2))
-
+        create_scatter_plot(pca_components, clusters, (1, 2), sample_ids)
 def decision_tree_analysis(X, clusters, selected_clusters):
     st.subheader("Decision Tree")
 
@@ -215,25 +242,25 @@ def feature_importance_analysis(X, clf):
     pruned_tree_visualization(X, clf)
 
 def plot_cluster_label_proportions(result_df):
-    st.subheader("Proportion of Each Label in Each Cluster")
-    
-    cluster_label_counts = result_df.groupby(['cluster', 'label']).size().unstack(fill_value=0)
+    st.subheader("Count of Each Label in Each Cluster")
 
-    cluster_label_proportions = cluster_label_counts.div(cluster_label_counts.sum(axis=1), axis=0)
+    cluster_label_counts = result_df.groupby(['cluster', 'label']).size().unstack(fill_value=0)
+    cluster_label_props = cluster_label_counts.div(cluster_label_counts.sum(axis=1), axis=0)
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    cluster_label_proportions.plot(kind='bar', stacked=True, ax=ax, color=['skyblue', 'lightsalmon'])
+    cluster_label_counts.plot(kind='bar', stacked=True, ax=ax, color=['skyblue', 'lightsalmon'])
 
-    for i, cluster in enumerate(cluster_label_proportions.index):
+    for i, cluster in enumerate(cluster_label_counts.index):
         bottom = 0
-        for j, label in enumerate(cluster_label_proportions.columns):
-            value = cluster_label_proportions.loc[cluster, label]
-            ax.text(i, bottom + value / 2, f"{value * 100:.1f}%", ha='center', va='center', fontsize=10)
-            bottom += value
+        for j, label in enumerate(cluster_label_counts.columns):
+            count = cluster_label_counts.loc[cluster, label]
+            prop = cluster_label_props.loc[cluster, label]
+            ax.text(i, bottom + count / 2, f"{prop * 100:.1f}%", ha='center', va='center', fontsize=10)
+            bottom += count
 
-    ax.set_title('Proportion of Responder and Non-responder in Each Cluster')
+    ax.set_title('Count of Responder and Non-responder in Each Cluster')
     ax.set_xlabel('Cluster')
-    ax.set_ylabel('Proportion (%)')
+    ax.set_ylabel('Count')
     ax.legend(title='Response', labels=['Non-responder', 'Responder'])
     st.pyplot(fig)
 
@@ -248,12 +275,8 @@ def pruned_tree_visualization(X, clf):
     st.pyplot(fig)
 
 def create_heatmap_streamlit(X, result_df, selected_features, num_display_features, x_label_font_size, y_label_font_size, cmap_choice):
-    cluster_colors = result_df['color'].values
-    cluster_labels = result_df['cluster'].values
-    sample_order = result_df.sort_values(by=['cluster', 'label', 'pca_1']).index
-
+    sample_order = result_df.index
     X_selected = X[selected_features].iloc[sample_order]
-
     X_zscore = (X_selected - X_selected.mean()) / X_selected.std()
     X_zscore = X_zscore.iloc[:, :num_display_features]
 
@@ -267,18 +290,21 @@ def create_heatmap_streamlit(X, result_df, selected_features, num_display_featur
         ax=ax
     )
 
+    ordered_clusters = result_df['cluster'].values
+    unique_clusters, counts = np.unique(ordered_clusters, return_counts=True)
+    boundaries = np.cumsum(counts)
+    for b in boundaries[:-1]:
+        ax.axvline(b, color='black', linewidth=3)
+
     ax.set_xlabel('Sample')
     ax.set_ylabel('Feature')
-
-    ytick_labels = ax.get_yticklabels()
-    for label in ytick_labels:
+    for label in ax.get_yticklabels():
         label.set_fontsize(y_label_font_size)
-
-    xtick_labels = ax.get_xmajorticklabels()
-    for label in xtick_labels:
+    for label in ax.get_xmajorticklabels():
         label.set_fontsize(x_label_font_size)
 
     st.pyplot(fig)
+
 
 @st.cache_resource(show_spinner=True)
 def single_split_cv_best_cached(X, y):
@@ -286,44 +312,52 @@ def single_split_cv_best_cached(X, y):
 
 def single_split_cv_best(X, y, test_size=0.2):
     xgb_model = xgboost.XGBClassifier()
-    param_combinations = list(itertools.product([0.6, 0.7, 0.8 ,0.9, 1], [0, 0.1, 0.2, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]))
+    param_combinations = list(itertools.product(
+        [0.6, 0.7, 0.8 ,0.9, 1],
+        [0, 0.1, 0.2, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5],
+        [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
+    ))
+
     best_total_metric = -1
     best_result = {}
+    seeds = [0, 1, 2, 3, 4]
 
     for subsample, alpha, eta in param_combinations:
-        xgb_model.set_params(subsample=subsample, alpha=alpha, eta=eta)
+        acc_train_list, acc_test_list = [], []
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=42, stratify=y
-        )
+        for seed in seeds:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=test_size, random_state=seed, stratify=y
+            )
 
-        xgb_model.fit(X_train, y_train)
-        train_score = xgb_model.score(X_train, y_train)
-        test_score = xgb_model.score(X_test, y_test)
+            model = xgboost.XGBClassifier(subsample=subsample, alpha=alpha, eta=eta, use_label_encoder=False, eval_metric='logloss')
+            model.fit(X_train, y_train)
 
-        y_train_pred_prob = xgb_model.predict_proba(X_train)[:, 1]
-        y_test_pred_prob = xgb_model.predict_proba(X_test)[:, 1]
+            acc_train = model.score(X_train, y_train)
+            acc_test = model.score(X_test, y_test)
 
-        train_auc = roc_auc_score(y_train, y_train_pred_prob)
-        test_auc = roc_auc_score(y_test, y_test_pred_prob)
+            acc_train_list.append(acc_train)
+            acc_test_list.append(acc_test)
 
-        total_metric = train_auc + test_auc + train_score + test_score
+        mean_acc_train = np.mean(acc_train_list)
+        mean_acc_test = np.mean(acc_test_list)
+        total_metric = mean_acc_train + mean_acc_test
+
         if total_metric > best_total_metric:
             best_total_metric = total_metric
             best_result = {
                 'Subsample': subsample,
                 'Alpha': alpha,
                 'Eta': eta,
-                'Train ACC': round(train_score, 4),
-                'Test ACC': round(test_score, 4),
-                'Train AUC': round(train_auc, 4),
-                'Test AUC': round(test_auc, 4)
+                'Train ACC (avg)': round(mean_acc_train, 4),
+                'Test ACC (avg)': round(mean_acc_test, 4)
             }
 
-    st.subheader("Best Parameter Combination")
+    st.subheader("Best Parameter Combination (Average of 5 Splits)")
     st.dataframe(pd.DataFrame([best_result]))
 
     return best_result['Subsample'], best_result['Alpha'], best_result['Eta']
+
 
 def xgboost_shap_analysis(X, y):
     subsample = st.slider("XGBoost subsample parameter", 0.5, 1.0, 1.0, step=0.1)
@@ -367,13 +401,14 @@ def xgboost_shap_analysis(X, y):
     st.subheader("Clustering (Method: Spectral clustering)")
     k_value = st.slider("Number of Neighbors", 2, len(selected_shap_values), 30)
     cluster_number = st.slider("Number of Clusters", 2, 10, 4)
-    clusters, result_df = perform_clustering(selected_pca_components, k_value, cluster_number, df_cnt_degs_norm)
-    
+    cluster_colors, result_df = perform_clustering(selected_pca_components, k_value, cluster_number, df_cnt_degs_norm)
+    sample_ids = result_df['id'].values
+    clusters   = result_df['cluster'].values
     st.subheader("Cluster Assignments")
     st.dataframe(result_df)
     
     selected_components_to_show = st.selectbox("Choose Principal Components for Scatter Plot", [('PC1', 'PC2'), ('PC1', 'PC3'), ('PC2', 'PC3')], key='1')
-    plot_clusters(selected_pca_components, clusters, selected_components_to_show)
+    plot_clusters(selected_pca_components, clusters, selected_components_to_show, sample_ids)
     plot_cluster_label_proportions(result_df)
     
     selected_clusters = st.multiselect("Select Clusters for Decision Tree", list(set(clusters)), default=list(set(clusters)), key='111')
